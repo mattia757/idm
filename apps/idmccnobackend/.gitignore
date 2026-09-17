@@ -1,0 +1,11 @@
+/target/
+nb-configuration.xml
+
+# Local-only DB dumps for Docker Compose (may contain real customer PII, never commit)
+DB/local/
+
+.settings/
+
+.classpath
+
+.project

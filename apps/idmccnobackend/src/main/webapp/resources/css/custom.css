@@ -1,0 +1,23 @@
+.form-label-bg {
+    background-color: #e9ecef !important;
+}
+
+.form-control[readonly] {
+    background-color: #f8f9fa !important;
+}
+
+.btn-primary:disabled {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+}
+
+#verified-email-address {
+    background-color: #f00 !important;
+}
+
+#not-verified-email-address {
+    background-color: #f00 !important;
+}
+td.text-td-center {
+    text-align: center;
+}

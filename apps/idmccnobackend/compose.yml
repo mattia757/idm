@@ -1,0 +1,86 @@
+services:
+  mysql:
+    image: mysql:8.4.5
+    ports:
+      - "3307:3306"
+    # Disables MySQL 8's invisible-PK feature, which otherwise breaks Keycloak's
+    # very first Liquibase changeset (see DB/local/00-create-keycloak-db.sql).
+    command: ["--sql_generate_invisible_primary_key=OFF"]
+    environment:
+      # App data (CCNO_*/sd_coop_*) lives here. Keycloak gets its own separate
+      # 'keycloak' schema, created by DB/local/00-create-keycloak-db.sql.
+      MYSQL_DATABASE: spesaadomicilio
+      MYSQL_USER: idmccno
+      MYSQL_PASSWORD: ${IDMCCNO_DB_PASSWORD:?Set IDMCCNO_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${IDMCCNO_DB_ROOT_PASSWORD:?Set IDMCCNO_DB_ROOT_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # DB/local (gitignored, local-only, may contain real PII) provides app
+      # data under data/ and Keycloak data under keycloak/.
+      - ./DB/local:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # -h 127.0.0.1 forces TCP (not the Unix socket), which only accepts
+      # connections once the *final* server is up — the temporary init-phase
+      # server also answers "localhost"/socket pings, reporting healthy too
+      # early (before the dump import + table rename init scripts finish).
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u idmccno -pidmccno_local_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+    networks:
+      - ccno-net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.4
+    # Uses the dedicated 'keycloak' schema. On a clean MySQL volume the dump in
+    # DB/local/keycloak is imported first, then Keycloak 26 validates/migrates it.
+    command: ["start-dev"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${IDMCCNO_KEYCLOAK_ADMIN_PASSWORD:?Set IDMCCNO_KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: mysql
+      KC_DB_URL: jdbc:mysql://mysql:3306/keycloak
+      KC_DB_USERNAME: idmccno
+      KC_DB_PASSWORD: ${IDMCCNO_DB_PASSWORD:?Set IDMCCNO_DB_PASSWORD}
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+    ports:
+      - "8081:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ccno-net
+
+  idmccnobackend:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: idmccnobackend:local
+    environment:
+      SPRING_PROFILES_ACTIVE: container
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: spesaadomicilio
+      DB_USER: idmccno
+      DB_PASSWORD: ${IDMCCNO_DB_PASSWORD:?Set IDMCCNO_DB_PASSWORD}
+      KEYCLOAK_BASE_URL: http://keycloak:8080
+      KEYCLOAK_REALM: IdmCCNO
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    networks:
+      - ccno-net
+
+networks:
+  ccno-net:
+    name: ccno-onprem-net
+
+volumes:
+  mysql-data:

@@ -1,0 +1,6 @@
+.git
+.idea
+.settings
+nb-configuration.xml
+target
+*.log

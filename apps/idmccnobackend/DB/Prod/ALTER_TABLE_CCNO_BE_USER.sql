@@ -1,0 +1,5 @@
+/**
+ * Author:  DelorenziVa
+ * Created: Aug 26, 2020
+ */
+ALTER TABLE IDMCCNO.CCNO_BE_USER MODIFY USER_ID INT NOT NULL AUTO_INCREMENT;

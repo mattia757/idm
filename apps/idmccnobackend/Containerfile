@@ -1,0 +1,19 @@
+FROM maven:3.9.11-eclipse-temurin-25 AS build
+WORKDIR /workspace
+
+COPY pom.xml .
+RUN mvn --batch-mode dependency:go-offline
+
+COPY src ./src
+RUN mvn --batch-mode clean package -DskipTests
+
+FROM eclipse-temurin:25-jre-noble
+WORKDIR /app
+
+RUN groupadd --system app && useradd --system --gid app --home-dir /app --shell /usr/sbin/nologin app
+COPY --from=build --chown=app:app /workspace/target/IdmCCNOBackend.war /app/app.war
+
+USER app
+EXPOSE 8080
+ENV SPRING_PROFILES_ACTIVE=container
+ENTRYPOINT ["java", "-jar", "/app/app.war"]
